@@ -1,0 +1,228 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>reveal.js</title>
+
+    <link rel="stylesheet" href="css/reveal.css">
+    <link rel="stylesheet" href="css/theme/black.css">
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+
+    <!-- Printing and PDF exports -->
+    <script>
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = window.location.search.match(/print-pdf/gi) ? 'css/print/pdf.css' : 'css/print/paper.css';
+        document.getElementsByTagName('head')[0].appendChild(link);
+    </script>
+</head>
+<body>
+<div class="reveal">
+    <div class="slides">
+
+        <section>
+            <h1>Angular HttpClient</h1>
+        </section>
+
+        <section>
+            <h2>A simple request</h2>
+            <pre><code data-trim data-noescape>
+
+// service
+export class MyService {
+    constructor(private http: HttpClient) { }
+
+    getData() {
+      return this.http.get(url);
+    }
+}
+	</code></pre>
+
+            <pre><code data-trim data-noescape>
+// component
+this.myService.getData().subscribe(data => console.log(data));
+
+	</code></pre>
+        </section>
+
+        <section>
+            <h2>Reading the full response</h2>
+            <pre><code data-trim data-noescape>
+// service
+export class MyService {
+  constructor(private http: HttpClient) {}
+
+  getData() {
+    return this.http.get(url, { observe: "response" });
+  }
+}
+	</code></pre>
+
+        </section>
+
+        <section>
+            <h2>Bullhorn Example</h2>
+
+            <pre><code data-trim data-noescape>
+// service
+getCountries(): Observable {
+    return this.checkToken().pipe(
+      mergeMap(() => {
+        const url = `${
+          this.restUrl
+        }query/Country?where=id>0&fields=id,code,name&count=300&token=${
+          this.token
+        }`;
+        return this.http.get(url);
+      })
+    );
+  }
+            </code></pre>
+
+        </section>
+
+        <section>
+            <h2>Http Params</h2>
+
+            <pre><code data-trim data-noescape>
+const fields = ["id", "name", "code"];
+
+const params = new HttpParams()
+  .set("where", "id>0")
+  .set("fields", fields.join(","))
+  .set("count", "300")
+  .set("token", this.token);
+
+const httpOptions = {
+  params
+};
+
+const url = `${this.restUrl}query/Country`;
+
+return this.http.get(url, httpOptions);
+            </code></pre>
+
+        </section>
+
+        <section>
+            <h2>Http Interceptor</h2>
+
+            <pre><code data-trim data-noescape>
+@Injectable()
+export class NoopInterceptor implements HttpInterceptor {
+
+    intercept(req: HttpRequest, next: HttpHandler):
+        Observable {
+        // do something with request
+        return next.handle(req);
+    }
+}
+
+// register in module providers array
+{ provide: HTTP_INTERCEPTORS, useClass: NoopInterceptor, multi: true }
+            </code></pre>
+
+        </section>
+
+        <section>
+            <h2>Adding the token</h2>
+
+            <pre><code data-trim data-noescape>
+// interceptor
+intercept(req: HttpRequest, next: HttpHandler) {
+    return this.authService.checkToken().pipe(
+      mergeMap(() => {
+        const token = this.authService.token;
+        const params = req.params.set("token", token);
+        const authReq = req.clone({
+          params: params
+        });
+
+        return next.handle(authReq);
+      })
+    );
+}
+            </code></pre>
+
+        </section>
+
+        <section>
+            <h2>Request becomes simpler</h2>
+
+            <pre><code data-trim data-noescape>
+
+  getCountries(): Observable<any> {
+    const fields = ["id", "name", "code"];
+    const params = new HttpParams()
+      .set("where", "id>0")
+      .set("fields", fields.join(","))
+      .set("count", "300");
+    const httpOptions = {
+      params
+    };
+
+    const url = `${this.restUrl}query/Country`;
+    return this.http.get(url, httpOptions);
+  }
+            </code></pre>
+
+        </section>
+
+        <section>
+            <h2>Handling errors</h2>
+
+            <pre><code data-trim data-noescape>
+// interceptor
+  intercept(req: HttpRequest<any>, next: HttpHandler) {
+    //check token and update the request...
+
+    return next.handle(authReq).do(null, (error: any) => {
+      if (error instanceof HttpErrorResponse) {
+        if (error.status === 401) {
+          this.authService.handleRetry();
+        }
+      }
+    });
+  }
+            </code></pre>
+
+        </section>
+
+        <section>
+            <h2>Summary</h2>
+            <ul>
+                <li>Use observables</li>
+                <li>Build query with Angular HttpParams</li>
+                <li>Add commonality into Http Interceptors</li>
+            </ul>
+        </section>
+    </div>
+</div>
+
+<script src="lib/js/head.min.js"></script>
+<script src="js/reveal.js"></script>
+
+<script>
+    // More info about config & dependencies:
+    // - https://github.com/hakimel/reveal.js#configuration
+    // - https://github.com/hakimel/reveal.js#dependencies
+    Reveal.initialize({
+        dependencies: [
+            {src: 'plugin/markdown/marked.js'},
+            {src: 'plugin/markdown/markdown.js'},
+            {src: 'plugin/notes/notes.js', async: true},
+            {
+                src: 'plugin/highlight/highlight.js', async: true, callback: function () {
+                    hljs.initHighlightingOnLoad();
+                }
+            }
+        ]
+    });
+</script>
+</body>
+</html>
